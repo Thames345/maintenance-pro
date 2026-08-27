@@ -372,6 +372,23 @@ export default function App() {
     }, 'บันทึกการตั้งค่าระบบแล้ว');
   };
 
+  const saveDutyRules = async (rules: AnyRow[]) => {
+    await run(async () => {
+      for (const row of rules) {
+        await api.rpc('mt_save_duty_rule', {
+          p_department_code: row.department_code,
+          p_schedule_mode: row.schedule_mode,
+          p_rotation_group: row.schedule_mode === 'alternate' ? (row.rotation_group || 'MAIN_ROOM') : null,
+          p_rotation_order: row.schedule_mode === 'alternate' ? Number(row.rotation_order || 1) : null,
+          p_anchor_date: row.schedule_mode === 'alternate' ? (row.anchor_date || todayISO()) : null,
+          p_work_days: (row.work_days || [1, 2, 3, 4, 5, 6, 7]).map(Number),
+          p_shift_codes: row.shift_codes || ['DAY', 'NIGHT'],
+          p_auto_create: row.schedule_mode !== 'manual' && row.auto_create !== false,
+        });
+      }
+    }, 'บันทึกกฎเวรอัตโนมัติแล้ว');
+  };
+
   const saveTechnician = async (values: TechnicianEditorPayload, photoFile: File | null, removePhoto: boolean) => {
     let photoWarning = '';
     await run(async () => {
@@ -476,7 +493,7 @@ export default function App() {
       {currentTab === 'duty' && <DutyView bundle={bundle} records={records} canManage={manager} busy={busy} onSelectRecord={setSelectedRecord} onOpenCreate={() => setManualDutyOpen(true)} onOpenSettings={() => setCurrentTab('settings')} onBroadcast={() => run(() => api.invoke(config.lineDispatchFunction, { mode: 'dispatch' }), 'ส่งคิวแจ้งเตือนเวรเข้า LINE แล้ว')}/>} 
       {currentTab === 'templates' && <TemplatesView templates={bundle.templates} items={bundle.templateItems} workOrders={bundle.workOrders} pmPlans={bundle.pmPlans} dutySchedules={bundle.dutySchedules} canManage={manager} busy={busy} onCreate={handleCreateTemplate} onUpdate={handleUpdateTemplate} onDelete={handleDeleteTemplate}/>} 
       {currentTab === 'line' && <LineView lineGroups={bundle.lineGroups} settings={bundle.notificationSettings} groupName={config.lineGroupName} webhookUrl={config.lineWebhookUrl} publicAppUrl={config.publicAppUrl} canManage={manager} busy={busy} onSave={saveLineSettings} onTest={() => run(() => api.invoke(config.lineDispatchFunction, { mode: 'test' }), 'ส่งข้อความทดสอบ LINE แล้ว')} onDispatch={() => run(() => api.invoke(config.lineDispatchFunction, { mode: 'dispatch' }), 'ประมวลผลคิว LINE แล้ว')}/>} 
-      {currentTab === 'settings' && <SettingsView bundle={bundle} profile={profile} profileName={profileName} canManage={manager} busy={busy} onSave={saveSystemSettings} onSaveTechnician={saveTechnician} onDeleteTechnician={deleteTechnician} onOpenLine={() => setCurrentTab('line')}/>} 
+      {currentTab === 'settings' && <SettingsView bundle={bundle} profile={profile} profileName={profileName} canManage={manager} busy={busy} onSave={saveSystemSettings} onSaveDutyRules={saveDutyRules} onSaveTechnician={saveTechnician} onDeleteTechnician={deleteTechnician} onOpenLine={() => setCurrentTab('line')}/>} 
       {currentTab === 'reports' && <div className="flex flex-col gap-6 animate-in fade-in duration-200">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4"><div className="flex items-start gap-4"><AppIcon name="report" framed className="w-14 h-14 md:w-16 md:h-16 shrink-0" label="รายงานและส่งออก"/><div><div className="eyebrow-dark"><span/> Maintenance Operations</div><h1 className="page-title-dark">รายงานและส่งออก</h1><p className="page-subtitle-dark">ค้นหาและส่งออกประวัติ PM งานเวร Checklist และรายการผิดปกติ</p></div></div><div className="flex gap-2 no-print"><button onClick={() => { exportToCSV(filteredRecords); logExport('csv', filteredRecords.length); }} className="btn-dark-secondary"><Download className="w-4 h-4"/> CSV</button><button onClick={() => { printPDFReport(); logExport('pdf', filteredRecords.length); }} className="btn-dark-primary"><FileText className="w-4 h-4"/> ส่งออก PDF</button></div></div>
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start"><div className="lg:col-span-4 no-print"><ReportFilter filter={filter} onFilterChange={handleFilterChange} onResetFilter={handleResetFilter} onApplyFilter={() => notify('อัปเดตตัวอย่างรายงานแล้ว', `${filteredRecords.length} รายการ`)} onExportExcel={() => { exportToExcel(filteredRecords); logExport('xlsx', filteredRecords.length); }} onExportCSV={() => { exportToCSV(filteredRecords); logExport('csv', filteredRecords.length); }} onExportPDF={() => { printPDFReport(); logExport('pdf', filteredRecords.length); }} departments={['MVR', 'MSR', 'MVR-LOTUS', 'MPR']}/></div><div className="lg:col-span-8 flex flex-col gap-6"><div className="no-print"><StatCards stats={stats} activeStatusFilter={filter.status} onSelectStatusFilter={(status) => handleFilterChange('status', status)}/></div><ReportTable records={filteredRecords} allRecordsCount={records.length} reportTitle={`รายงาน${filter.reportType}`} reportSubtitle={reportSubtitle} onSelectRecord={setSelectedRecord}/></div></div>

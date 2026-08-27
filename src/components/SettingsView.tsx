@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useDialogLifecycle } from '../lib/useDialogLifecycle';
-import { CheckCircle2, Clock, Cpu, Database, ExternalLink, Save, Send, Shield, Sparkles, UserCheck, Users, Wrench, X } from '../icons';
+import { Calendar, CheckCircle2, Clock, Cpu, Database, ExternalLink, Save, Send, Shield, Sparkles, UserCheck, Users, Wrench, X } from '../icons';
 import type { AnyRow, AppProfile, DataBundle, TechnicianEditorPayload } from '../types';
-import { roleLabel, teamCrewCode } from '../lib/models';
+import { roleLabel, teamCrewCode, todayISO } from '../lib/models';
 import { TechnicianPicker } from './TechnicianPicker';
 import { TechnicianManagement } from './TechnicianManagement';
 import { AppIcon } from './AppIcon';
@@ -14,14 +14,65 @@ interface SettingsViewProps {
   canManage: boolean;
   busy: boolean;
   onSave: (shiftRows: AnyRow[], teamMembers: Record<string, string[]>) => Promise<void>;
+  onSaveDutyRules: (rules: AnyRow[]) => Promise<void>;
   onSaveTechnician: (payload: TechnicianEditorPayload, photoFile: File | null, removePhoto: boolean) => Promise<void>;
   onDeleteTechnician: (technician: AnyRow) => Promise<void>;
   onOpenLine?: () => void;
 }
 
-type SettingsTab = 'overview' | 'technicians' | 'shifts' | 'teams' | 'security';
+type SettingsTab = 'overview' | 'technicians' | 'duty' | 'shifts' | 'teams' | 'security';
 
 const text = (value: unknown) => String(value ?? '').trim();
+const dutyDays = [
+  [1, 'จ'], [2, 'อ'], [3, 'พ'], [4, 'พฤ'], [5, 'ศ'], [6, 'ส'], [7, 'อา'],
+] as const;
+
+const scheduleModeLabel = (mode: string) => mode === 'daily'
+  ? 'ทุกวัน'
+  : mode === 'alternate'
+    ? 'สลับแผนก'
+    : 'สร้างเอง';
+
+const dateDiffDays = (dateA: string, dateB: string) => {
+  const a = Date.parse(`${dateA}T12:00:00+07:00`);
+  const b = Date.parse(`${dateB}T12:00:00+07:00`);
+  return Math.round((a - b) / 86_400_000);
+};
+
+const isodow = (dateISO: string) => {
+  const day = new Date(`${dateISO}T12:00:00+07:00`).getDay();
+  return day === 0 ? 7 : day;
+};
+
+const previewDepartments = (dateISO: string, rules: AnyRow[]) => {
+  const day = isodow(dateISO);
+  const active = rules.filter((row) => row.is_active !== false
+    && row.auto_create !== false
+    && (row.work_days || []).map(Number).includes(day)
+    && row.schedule_mode !== 'manual');
+
+  const result = new Set<string>();
+  active.filter((row) => row.schedule_mode === 'daily')
+    .forEach((row) => result.add(text(row.department_code)));
+
+  const groups = [...new Set(active
+    .filter((row) => row.schedule_mode === 'alternate' && text(row.rotation_group))
+    .map((row) => text(row.rotation_group)))];
+
+  groups.forEach((group) => {
+    const candidates = active
+      .filter((row) => row.schedule_mode === 'alternate' && text(row.rotation_group) === group)
+      .sort((a, b) => Number(a.rotation_order || 0) - Number(b.rotation_order || 0));
+    if (!candidates.length) return;
+    const anchor = candidates.map((row) => text(row.anchor_date)).filter(Boolean).sort()[0];
+    if (!anchor) return;
+    const offset = ((dateDiffDays(dateISO, anchor) % candidates.length) + candidates.length) % candidates.length;
+    result.add(text(candidates[offset].department_code));
+  });
+
+  return [...result];
+};
+
 
 const teamTone = (crew: string) => crew === 'A'
   ? 'from-indigo-600 to-violet-500'
@@ -29,9 +80,10 @@ const teamTone = (crew: string) => crew === 'A'
     ? 'from-cyan-600 to-blue-500'
     : 'from-emerald-600 to-teal-500';
 
-export const SettingsView: React.FC<SettingsViewProps> = ({ bundle, profile, profileName, canManage, busy, onSave, onSaveTechnician, onDeleteTechnician, onOpenLine }) => {
+export const SettingsView: React.FC<SettingsViewProps> = ({ bundle, profile, profileName, canManage, busy, onSave, onSaveDutyRules, onSaveTechnician, onDeleteTechnician, onOpenLine }) => {
   const [tab, setTab] = useState<SettingsTab>('overview');
   const [shifts, setShifts] = useState<AnyRow[]>([]);
+  const [dutyRules, setDutyRules] = useState<AnyRow[]>([]);
   const [members, setMembers] = useState<Record<string, string[]>>({});
   const [editingTeam, setEditingTeam] = useState<AnyRow | null>(null);
   useDialogLifecycle(Boolean(editingTeam), () => setEditingTeam(null));
@@ -47,6 +99,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ bundle, profile, pro
         reminder_before_due_minutes: notification?.reminder_before_due_minutes ?? 10,
       };
     }));
+    setDutyRules(bundle.dutyRules.map((row) => ({ ...row })));
     const technicianIndex = new Map(bundle.technicians.map((row) => [text(row.id), row]));
     setMembers(Object.fromEntries(bundle.teams.map((team) => {
       const crew = teamCrewCode(team);
@@ -74,6 +127,36 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ bundle, profile, pro
     setShifts((all) => all.map((row) => row.id === id ? { ...row, [key]: value } : row));
   };
 
+  const updateDutyRule = (departmentCode: string, key: string, value: unknown) => {
+    setDutyRules((all) => all.map((row) => row.department_code === departmentCode
+      ? { ...row, [key]: value }
+      : row));
+  };
+
+  const toggleDutyArrayValue = (departmentCode: string, key: 'work_days' | 'shift_codes', value: number | string) => {
+    setDutyRules((all) => all.map((row) => {
+      if (row.department_code !== departmentCode) return row;
+      const current = Array.isArray(row[key]) ? row[key] : [];
+      const exists = current.map(String).includes(String(value));
+      const next = exists
+        ? current.filter((item: unknown) => String(item) !== String(value))
+        : [...current, value];
+      return { ...row, [key]: next };
+    }));
+  };
+
+  const dutyPreview = useMemo(() => {
+    const start = todayISO();
+    return Array.from({ length: 8 }, (_, index) => {
+      const date = new Date(`${start}T12:00:00+07:00`);
+      date.setDate(date.getDate() + index);
+      const iso = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit',
+      }).format(date);
+      return { iso, departments: previewDepartments(iso, dutyRules) };
+    });
+  }, [dutyRules]);
+
   const eligibleTechnicians = (team: AnyRow) => {
     const crew = teamCrewCode(team);
     return bundle.technicians.filter((row) => row.is_active !== false
@@ -100,13 +183,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ bundle, profile, pro
   };
 
   return <div className="space-y-6 max-w-6xl animate-in">
-    <div className="flex items-start gap-4"><AppIcon name="settings" framed className="w-14 h-14 md:w-16 md:h-16 shrink-0" label="ตั้งค่าระบบ"/><div><div className="flex items-center gap-2"><span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 uppercase tracking-wider">System Administration</span></div><h1 className="text-2xl md:text-3xl font-bold tracking-tight text-white mt-1">ตั้งค่าระบบ (System Configuration)</h1><p className="text-xs sm:text-sm text-zinc-400">การเชื่อมต่อ Supabase, การแจ้งเตือน LINE, การหมุนเวร 2 สัปดาห์ และทีมช่าง</p></div></div>
+    <div className="flex items-start gap-4"><AppIcon name="settings" framed className="w-14 h-14 md:w-16 md:h-16 shrink-0" label="ตั้งค่าระบบ"/><div><div className="flex items-center gap-2"><span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 uppercase tracking-wider">System Administration</span></div><h1 className="text-2xl md:text-3xl font-bold tracking-tight text-white mt-1">ตั้งค่าระบบ (System Configuration)</h1><p className="text-xs sm:text-sm text-zinc-400">การเชื่อมต่อ Supabase, การแจ้งเตือน LINE, กฎเวรอัตโนมัติ และทีมช่าง</p></div></div>
 
     <section className="relative overflow-hidden bg-gradient-to-r from-zinc-900 via-indigo-950/35 to-zinc-900 border border-zinc-800 rounded-[2rem] p-6"><div className="absolute -right-16 -top-16 w-52 h-52 rounded-full bg-indigo-500/10 blur-3xl"/><div className="relative flex items-center gap-4"><div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-lg font-black">{profileName.replace(/^นาย/, '').trim().slice(0, 2) || 'MT'}</div><div><h2 className="font-extrabold text-lg">{profileName}</h2><p className="text-xs text-zinc-400 mt-1">{roleLabel(profile.role)} · {profile.department_code || 'MVR–MSR'} · {canManage ? 'แก้ไขการตั้งค่าได้' : 'ดูการตั้งค่าได้เท่านั้น'}</p></div></div></section>
 
     <div className="flex gap-2 overflow-auto no-scrollbar">{([
       ['overview', <Sparkles className="w-4 h-4"/>, 'ภาพรวมระบบ'],
       ['technicians', <UserCheck className="w-4 h-4"/>, 'จัดการช่าง'],
+      ['duty', <Calendar className="w-4 h-4"/>, 'กำหนดเวร'],
       ['shifts', <Clock className="w-4 h-4"/>, 'กะและเวลา'],
       ['teams', <Users className="w-4 h-4"/>, 'ทีมและสมาชิก'],
       ['security', <Shield className="w-4 h-4"/>, 'ความปลอดภัย'],
@@ -127,7 +211,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ bundle, profile, pro
         </section>
       </div>
 
-      <section className="bg-[#18181B] rounded-[2rem] p-6 border border-zinc-800 shadow-xl space-y-4"><h3 className="text-base font-bold text-white flex items-center gap-2"><Clock className="w-4 h-4 text-indigo-400"/><span>รอบการหมุนเวรและเวลาปฏิบัติหน้าที่ (2-Week Rotation Rules)</span></h3><div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs"><div className="p-3.5 bg-zinc-900/70 rounded-2xl border border-zinc-800 space-y-2"><span className="font-bold text-amber-400 block">กะเช้า (Day Shift)</span><p className="text-white text-sm font-bold font-mono">08:00 - 20:00</p><p className="text-[11px] text-zinc-400">ทีม A / B สลับเช้า–ดึกทุก 14 วัน</p></div><div className="p-3.5 bg-zinc-900/70 rounded-2xl border border-zinc-800 space-y-2"><span className="font-bold text-indigo-400 block">กะดึก (Night Shift)</span><p className="text-white text-sm font-bold font-mono">20:00 - 08:00</p><p className="text-[11px] text-zinc-400">วันที่เวรอ้างอิงจากวันเริ่มเข้ากะ</p></div><div className="p-3.5 bg-zinc-900/70 rounded-2xl border border-zinc-800 space-y-2"><span className="font-bold text-zinc-300 block">กลุ่ม O (Normal Hours)</span><p className="text-white text-sm font-bold font-mono">08:00 - 17:00</p><p className="text-[11px] text-zinc-400">ไม่หมุน A/B และไม่สร้างเวรอัตโนมัติ</p></div></div></section>
+      <section className="bg-[#18181B] rounded-[2rem] p-6 border border-zinc-800 shadow-xl space-y-4"><div className="flex items-center justify-between gap-3"><h3 className="text-base font-bold text-white flex items-center gap-2"><Calendar className="w-4 h-4 text-indigo-400"/><span>กฎเวรทำความสะอาดปัจจุบัน</span></h3><button type="button" onClick={() => setTab('duty')} className="text-xs font-bold text-indigo-400 hover:text-indigo-300">แก้กฎเวร →</button></div><div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs"><div className="p-3.5 bg-zinc-900/70 rounded-2xl border border-zinc-800 space-y-2"><span className="font-bold text-indigo-300 block">ห้องช่างหลัก</span><p className="text-white text-sm font-bold">MVR ↔ MSR</p><p className="text-[11px] text-zinc-400">สลับกันทำทุกวัน · 27/08/2026 เริ่ม MVR</p></div><div className="p-3.5 bg-zinc-900/70 rounded-2xl border border-zinc-800 space-y-2"><span className="font-bold text-emerald-400 block">พื้นที่ Lotus</span><p className="text-white text-sm font-bold">MVR-LOTUS ทุกวัน</p><p className="text-[11px] text-zinc-400">พื้นที่แยก จึงสร้างเวรทุกวันทั้งกะเช้าและกะดึก</p></div><div className="p-3.5 bg-zinc-900/70 rounded-2xl border border-zinc-800 space-y-2"><span className="font-bold text-zinc-300 block">MPR</span><p className="text-white text-sm font-bold">Manual</p><p className="text-[11px] text-zinc-400">มี Checklist มาตรฐานเดียวกัน แต่ยังไม่สร้างเวรอัตโนมัติ</p></div></div></section>
 
       <section className="bg-[#18181B] rounded-[2rem] p-6 border border-zinc-800 shadow-xl space-y-4"><div className="flex items-center justify-between gap-3"><h3 className="text-base font-bold text-white flex items-center gap-2"><AppIcon name="technicians" className="w-8 h-8" label="ทำเนียบช่าง"/><span>ทำเนียบช่างเทคนิคและสิทธิ์เข้าใช้งาน</span></h3><button type="button" onClick={() => setTab('technicians')} className="text-xs font-bold text-indigo-500 hover:text-indigo-600">จัดการทั้งหมด →</button></div><div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">{directoryRows.filter((technician) => technician.is_active !== false).slice(0, 9).map((technician) => <div key={technician.id} className="p-3.5 rounded-2xl bg-zinc-900/80 border border-zinc-800 flex flex-col justify-between space-y-2"><div className="flex items-start justify-between gap-2"><div className="min-w-0"><span className="text-xs font-bold font-mono text-indigo-500 px-2 py-0.5 rounded-md bg-indigo-500/10 border border-indigo-500/20">{technician.employee_code || 'ช่าง'}</span><p className="font-bold text-white mt-1.5 truncate">{technician.full_name}</p></div><span className="text-[10px] font-bold px-2 py-0.5 rounded-md uppercase bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">ทีม {technician.shift || '-'}</span></div><div className="text-[11px] text-zinc-400 flex items-center justify-between pt-2 border-t border-zinc-800/80"><span>{technician.department_code}</span><span className="font-mono text-zinc-500">Active</span></div></div>)}</div>{directoryRows.filter((technician) => technician.is_active !== false).length > 9 && <p className="text-[11px] text-zinc-500">แสดง 9 จาก {directoryRows.filter((technician) => technician.is_active !== false).length} คน · ดูและแก้ไขทั้งหมดในแท็บ “จัดการช่าง”</p>}</section>
 
@@ -143,6 +227,46 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ bundle, profile, pro
       onSave={onSaveTechnician}
       onDelete={onDeleteTechnician}
     />}
+
+
+    {tab === 'duty' && <div className="space-y-5">
+      <section className="bg-[#18181B] border border-zinc-800 rounded-[2rem] p-5 sm:p-7 shadow-2xl">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-zinc-800">
+          <div><h2 className="font-extrabold flex items-center gap-2"><Calendar className="w-5 h-5 text-indigo-400"/>กำหนดเวรอัตโนมัติ</h2><p className="text-[11px] text-zinc-500 mt-1">เลือกวัน กะ และรูปแบบของแต่ละแผนก · MVR/MSR ใช้ Rotation Group เดียวกันเพื่อสลับพื้นที่ห้องช่าง</p></div>
+          {canManage && <button type="button" disabled={busy} onClick={() => onSaveDutyRules(dutyRules)} className="btn-dark-primary shrink-0"><Save className="w-4 h-4"/>{busy ? 'กำลังบันทึก...' : 'บันทึกกฎเวร'}</button>}
+        </div>
+
+        <div className="grid lg:grid-cols-2 gap-4 mt-5">{dutyRules.map((row) => {
+          const mode = text(row.schedule_mode) || 'manual';
+          const days = (row.work_days || []).map(Number);
+          const shiftsSelected = (row.shift_codes || []).map(String);
+          return <article key={row.department_code} className="rounded-3xl bg-zinc-900/65 border border-zinc-800 p-4 sm:p-5 space-y-4">
+            <div className="flex items-start justify-between gap-3"><div><span className="text-[10px] font-black text-indigo-400">{row.department_code}</span><h3 className="font-extrabold mt-0.5">{row.department_code === 'MVR-LOTUS' ? 'พื้นที่ Lotus' : row.department_code === 'MPR' ? 'MPR' : 'ห้องช่างหลัก'}</h3><p className="text-[10px] text-zinc-500 mt-1">{scheduleModeLabel(mode)} · {row.auto_create === false ? 'ไม่สร้างอัตโนมัติ' : 'สร้างอัตโนมัติ'}</p></div><span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${mode === 'daily' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : mode === 'alternate' ? 'bg-indigo-500/10 text-indigo-300 border-indigo-500/20' : 'bg-zinc-800 text-zinc-400 border-zinc-700'}`}>{scheduleModeLabel(mode)}</span></div>
+
+            <label className="field-dark"><span>รูปแบบเวร</span><select disabled={!canManage} value={mode} onChange={(event) => {
+              const nextMode = event.target.value;
+              updateDutyRule(row.department_code, 'schedule_mode', nextMode);
+              updateDutyRule(row.department_code, 'auto_create', nextMode !== 'manual');
+            }}><option value="daily">ทุกวัน (Daily)</option><option value="alternate">สลับแผนก (Alternate)</option><option value="manual">สร้างเอง (Manual)</option></select></label>
+
+            <div><p className="text-[10px] font-bold text-zinc-400 mb-2">วันที่ต้องทำ</p><div className="grid grid-cols-7 gap-1.5">{dutyDays.map(([value, label]) => <button key={value} type="button" disabled={!canManage || mode === 'manual'} onClick={() => toggleDutyArrayValue(row.department_code, 'work_days', value)} className={`h-9 rounded-xl border text-[10px] font-black transition ${days.includes(value) ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-zinc-900 border-zinc-700 text-zinc-500'}`}>{label}</button>)}</div></div>
+
+            <div><p className="text-[10px] font-bold text-zinc-400 mb-2">กะที่สร้างเวร</p><div className="grid grid-cols-2 gap-2">{[['DAY','กะเช้า 20:00'],['NIGHT','กะดึก 08:00']].map(([value,label]) => <button key={value} type="button" disabled={!canManage || mode === 'manual'} onClick={() => toggleDutyArrayValue(row.department_code, 'shift_codes', value)} className={`h-10 rounded-xl border text-[11px] font-bold ${shiftsSelected.includes(value) ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' : 'bg-zinc-900 border-zinc-700 text-zinc-500'}`}>{label}</button>)}</div></div>
+
+            {mode === 'alternate' && <div className="grid sm:grid-cols-3 gap-2">
+              <label className="field-dark"><span>Rotation Group</span><input disabled={!canManage} value={row.rotation_group || 'MAIN_ROOM'} onChange={(event) => updateDutyRule(row.department_code, 'rotation_group', event.target.value)}/></label>
+              <label className="field-dark"><span>ลำดับ</span><input disabled={!canManage} type="number" min="1" value={row.rotation_order || 1} onChange={(event) => updateDutyRule(row.department_code, 'rotation_order', Number(event.target.value))}/></label>
+              <label className="field-dark"><span>วันเริ่มรอบ</span><input disabled={!canManage} type="date" value={row.anchor_date || todayISO()} onChange={(event) => updateDutyRule(row.department_code, 'anchor_date', event.target.value)}/></label>
+            </div>}
+          </article>;
+        })}</div>
+      </section>
+
+      <section className="bg-[#18181B] border border-zinc-800 rounded-[2rem] p-5 sm:p-7 shadow-2xl">
+        <div className="flex items-center gap-2"><Calendar className="w-5 h-5 text-emerald-400"/><div><h2 className="font-extrabold">ตัวอย่างเวร 8 วันถัดไป</h2><p className="text-[11px] text-zinc-500 mt-0.5">คำนวณจากกฎที่กำลังแสดงอยู่ ก่อนกดบันทึก</p></div></div>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-4">{dutyPreview.map((row) => <div key={row.iso} className="rounded-2xl bg-zinc-900/65 border border-zinc-800 p-3.5"><p className="text-[10px] font-mono text-zinc-500">{row.iso}</p><div className="flex flex-wrap gap-1.5 mt-2">{row.departments.length ? row.departments.map((dept) => <span key={dept} className="px-2 py-1 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-[10px] font-bold text-indigo-300">{dept}</span>) : <span className="text-[10px] text-zinc-600">ไม่มีเวรอัตโนมัติ</span>}</div></div>)}</div>
+      </section>
+    </div>}
 
     {tab === 'shifts' && <section className="bg-[#18181B] border border-zinc-800 rounded-[2rem] p-5 sm:p-7 shadow-2xl">
       <div className="flex items-center justify-between gap-4 pb-4 border-b border-zinc-800"><div><h2 className="font-extrabold">เวลากะและเวลาทำเวร</h2><p className="text-[11px] text-zinc-500 mt-1">A/B ใช้ DAY/NIGHT ตามรอบ 14 วัน · O ใช้กะปกติและไม่สร้างเวรอัตโนมัติ</p></div>{canManage && <button type="button" disabled={busy} onClick={() => onSave(shifts, members)} className="btn-dark-primary shrink-0"><Save className="w-4 h-4"/> บันทึก</button>}</div>

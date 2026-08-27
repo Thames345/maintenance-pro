@@ -90,8 +90,20 @@ npm test
 
 คำสั่งนี้จะตรวจ TypeScript และ Production Build ต่อเนื่องกัน
 
-ดูขั้นตอนสร้างลิงก์เว็บที่ [DEPLOY-GITHUB-PAGES.md](./DEPLOY-GITHUB-PAGES.md)
+ดูขั้นตอนสร้างลิงก์เว็บที่ [DEPLOY-FROM-ZERO-TH.md](./DEPLOY-FROM-ZERO-TH.md)
 
+
+
+## v2.5.6 – Automatic Duty Rotation + Shared MSR Checklist
+
+- Duty Checklist ของ MVR, MSR, MVR-LOTUS และ MPR ใช้รายการมาตรฐาน 6 ข้อเดียวกันกับ `DUTY-MSR`
+- เพิ่ม `mt_duty_rules` สำหรับกำหนดวัน, กะ และรูปแบบการสร้างเวรจากหน้า Settings
+- MVR/MSR ใช้พื้นที่ห้องช่างเดียวกันและสลับกันทุกวัน: 27/08/2026 = MVR, 28/08/2026 = MSR
+- MVR-LOTUS อยู่คนละพื้นที่ จึงสร้างเวรทุกวันทั้ง DAY/NIGHT
+- MPR ใช้ Manual เป็นค่าเริ่มต้น แต่มี Checklist มาตรฐานเดียวกัน
+- LINE dispatcher สร้างเวรตามกฎและส่งข้อความ LINE อัตโนมัติ พร้อมลิงก์เปิดใบงาน
+- หน้า `ตั้งค่า → กำหนดเวร` แก้วัน จ.–อา., กะ DAY/NIGHT, Rotation Group, ลำดับ และวันเริ่มรอบได้
+- มี Preview เวรล่วงหน้า 8 วันก่อนบันทึก
 
 
 ## v2.5.4 – Brand Logo + LINE Flex + Open Work Order
@@ -104,7 +116,7 @@ npm test
 - หากยังไม่ได้ Login ระบบเก็บ Deep Link ไว้และเปิดใบงานเดิมต่อหลัง Login สำเร็จ
 - หน้า LINE ในเว็บมีตัวอย่าง Flex Card และแสดง Production App URL ที่ใช้ทำ Deep Link
 - โลโก้สำหรับ LINE เสิร์ฟผ่าน Supabase Edge Function `mt-brand-logo` เพื่อให้เป็น HTTPS public URL ที่เสถียร
-- `mt-line-dispatch` Production ใช้ Flex Message แล้ว โดยยังคง Manual Duty Mode และ Cron ส่งคิวอัตโนมัติ
+- หมายเหตุ: v2.5.4 เคยใช้ Flex Message; Production ปัจจุบันกลับมาใช้ข้อความ LINE แบบธรรมดาพร้อมลิงก์เปิดใบงานเพื่อความเสถียร
 
 ## v2.5.3 – Viewport Safe Modal / Responsive Fix
 - แก้หน้าสร้างเวรเองที่สูงเกินจอจนปุ่มปิดและปุ่มบันทึกหาย

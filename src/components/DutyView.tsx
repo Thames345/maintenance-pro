@@ -20,11 +20,12 @@ interface DutyViewProps {
 }
 
 const standards = [
-  { title: '1. พื้นห้องช่าง & พื้นที่ซ่อม', desc: 'กวาดและถูพื้น ปราศจากคราบน้ำมันและเศษขยะ' },
-  { title: '2. เครื่องมือ & บอร์ด 5S', desc: 'ตรวจเช็คและจัดเก็บเครื่องมือกลับตำแหน่งให้ครบ' },
-  { title: '3. โต๊ะปฏิบัติงานส่วนกลาง', desc: 'เช็ดโต๊ะและจัดชิ้นงานรอประกอบให้เป็นระเบียบ' },
-  { title: '4. คัดแยกขยะอันตราย', desc: 'แยกผ้าเปื้อนน้ำมัน เศษโลหะ และขยะทั่วไป' },
-  { title: '5. พลังงาน & ความปลอดภัย', desc: 'ปิดไฟ พัดลม แอร์ และตรวจตู้เก็บอุปกรณ์' },
+  { title: '1. ตรวจและจัดเก็บเครื่องมือ', desc: 'ตรวจจำนวนและจัดเก็บเครื่องมือส่วนกลาง พร้อมแนบรูป' },
+  { title: '2. ทำความสะอาดพื้นที่', desc: 'กวาดทำความสะอาดโต๊ะและพื้นที่ทำงาน พร้อมแนบรูป' },
+  { title: '3. เก็บรถเครื่องเข้าที่', desc: 'นำรถเครื่องมือ/รถเข็นกลับตำแหน่ง พร้อมแนบรูป' },
+  { title: '4. ห้องช่างชั้นสอง', desc: 'กวาดทำความสะอาดห้องช่างชั้นสอง พร้อมแนบรูป' },
+  { title: '5. ทิ้งขยะ', desc: 'เก็บและทิ้งขยะตามจุดที่กำหนด พร้อมแนบรูป' },
+  { title: '6. ทำความสะอาดตู้เย็น', desc: 'ตรวจสอบและทำความสะอาดตู้เย็น พร้อมแนบรูป' },
 ];
 
 export const DutyView: React.FC<DutyViewProps> = ({
@@ -77,7 +78,7 @@ export const DutyView: React.FC<DutyViewProps> = ({
           <div className="min-w-0">
           <div className="flex items-center gap-2"><span className="text-[10px] font-bold px-2.5 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 uppercase tracking-wider flex items-center gap-1.5"><Sparkles className="w-3 h-3" />Workshop Housekeeping & 5S Schedule</span></div>
           <h1 className="duty-hero-title text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight mt-1">กำหนดเวรทำความสะอาดห้องช่าง</h1>
-          <p className="duty-hero-copy text-xs md:text-sm mt-1 max-w-2xl">เวร 5S สร้างโดยหัวหน้างานเอง · LINE ส่งแจ้งเตือนตามเวลาที่กำหนดโดยอัตโนมัติ</p>
+          <p className="duty-hero-copy text-xs md:text-sm mt-1 max-w-2xl">ระบบสร้างเวรตามกฎอัตโนมัติ · MVR/MSR สลับวันกัน · MVR-LOTUS ทำทุกวัน · LINE แจ้งเตือนอัตโนมัติ</p>
           </div>
         </div>
         <div className="flex w-full md:w-auto flex-wrap items-center gap-2.5">
@@ -89,7 +90,7 @@ export const DutyView: React.FC<DutyViewProps> = ({
 
       <section className="bg-[#18181B] rounded-[2rem] p-5 border border-zinc-800 shadow-xl space-y-3">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2"><h3 className="text-sm font-bold text-white flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-indigo-400" /><span>เกณฑ์มาตรฐาน 5S การทำความสะอาดห้องช่างประจำกะ</span></h3><span className="text-[11px] text-zinc-400 font-mono">ส่งมอบกะ: กะวัน 20:00 น. / กะคืน 08:00 น.</span></div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3 pt-1">{standards.map((item) => <div key={item.title} className="p-3 rounded-xl bg-zinc-900/80 border border-zinc-800/80 space-y-1"><div className="text-xs font-bold text-indigo-300">{item.title}</div><p className="text-[11px] text-zinc-400 leading-relaxed">{item.desc}</p></div>)}</div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 pt-1">{standards.map((item) => <div key={item.title} className="p-3 rounded-xl bg-zinc-900/80 border border-zinc-800/80 space-y-1"><div className="text-xs font-bold text-indigo-300">{item.title}</div><p className="text-[11px] text-zinc-400 leading-relaxed">{item.desc}</p></div>)}</div>
       </section>
 
       <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4">
@@ -123,7 +124,7 @@ export const DutyView: React.FC<DutyViewProps> = ({
         }) : <div className="col-span-full py-16 text-center rounded-[2rem] bg-[#18181B] border border-zinc-800 space-y-3"><AppIcon name="duty" className="w-16 h-16 mx-auto" label="ยังไม่มีตารางเวร"/><h4 className="text-base font-bold text-white">ยังไม่มีตารางเวรของวันที่เลือก</h4><p className="text-xs text-zinc-400 max-w-sm mx-auto">ระบบตั้งเป็นโหมดสร้างเวรด้วยตนเอง เลือกแผนก ทีม/ช่าง เวลาเริ่ม และกำหนดส่งได้เอง</p>{canManage && <button onClick={onOpenCreate} className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-500">สร้างเวรเอง</button>}</div>}
       </div>
 
-      <button onClick={onOpenSettings} className="text-xs text-indigo-400 hover:text-indigo-300 font-bold flex items-center gap-2"><Wrench className="w-3.5 h-3.5" />ตั้งค่าเวลากะและการแจ้งเตือน →</button>
+      <button onClick={onOpenSettings} className="text-xs text-indigo-400 hover:text-indigo-300 font-bold flex items-center gap-2"><Wrench className="w-3.5 h-3.5" />ตั้งค่ากฎเวร เวลา และการแจ้งเตือน →</button>
     </div>
   );
 };

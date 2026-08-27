@@ -449,6 +449,7 @@ async function loadBundle(): Promise<DataBundle> {
     select('mt_checklist_items', 'select=*&order=template_id.asc,sort_order.asc&limit=5000'),
     select('mt_shift_settings', 'select=*&order=department_code.asc,shift_code.asc'),
     select('mt_notification_settings', 'select=*&order=department_code.asc,shift_code.asc'),
+    select('mt_duty_rules', 'select=*&order=department_code.asc'),
     select('mt_teams', 'select=*&order=department_code.asc,shift_code.asc'),
     select('mt_team_members', 'select=*&order=team_id.asc,member_role.asc'),
     select('mt_technician_directory', 'select=id,full_name,department_code,shift,role,job_position,photo_url,is_active&order=department_code.asc,full_name.asc'),
@@ -473,9 +474,9 @@ async function loadBundle(): Promise<DataBundle> {
   }
   return {
     workOrders: rows[0], assignees: rows[1], pmPlans: rows[2], dutySchedules: rows[3],
-    templates: rows[4], templateItems: rows[5], shiftSettings: rows[6], notificationSettings: rows[7],
-    teams: rows[8], teamMembers: rows[9], technicians: rows[10], machines: rows[11], lineGroups: rows[12],
-    workOrderItems: rows[13], checklistResults: rows[14], abnormalFindings: rows[15], statusHistory: rows[16], workAttachments: rows[17],
+    templates: rows[4], templateItems: rows[5], shiftSettings: rows[6], notificationSettings: rows[7], dutyRules: rows[8],
+    teams: rows[9], teamMembers: rows[10], technicians: rows[11], machines: rows[12], lineGroups: rows[13],
+    workOrderItems: rows[14], checklistResults: rows[15], abnormalFindings: rows[16], statusHistory: rows[17], workAttachments: rows[18],
     managedTechnicians, technicianAdminReady,
   };
 }

@@ -82,6 +82,7 @@ export interface DataBundle {
   templateItems: AnyRow[];
   shiftSettings: AnyRow[];
   notificationSettings: AnyRow[];
+  dutyRules: AnyRow[];
   teams: AnyRow[];
   teamMembers: AnyRow[];
   technicians: AnyRow[];
@@ -135,7 +136,7 @@ export interface NewTaskPayload {
 
 export const emptyBundle: DataBundle = {
   workOrders: [], assignees: [], pmPlans: [], dutySchedules: [], templates: [],
-  templateItems: [], shiftSettings: [], notificationSettings: [], teams: [],
+  templateItems: [], shiftSettings: [], notificationSettings: [], dutyRules: [], teams: [],
   teamMembers: [], technicians: [], machines: [], lineGroups: [], workOrderItems: [],
   checklistResults: [], abnormalFindings: [], statusHistory: [], workAttachments: [],
   managedTechnicians: [], technicianAdminReady: false,
