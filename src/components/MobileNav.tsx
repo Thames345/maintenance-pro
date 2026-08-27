@@ -53,7 +53,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({ currentTab, onSelectTab })
   return (
     <>
       {moreOpen && (
-        <div className="lg:hidden fixed inset-0 z-[54] no-print">
+        <div className="lg:hidden fixed inset-0 z-[44] no-print">
           <button
             aria-label="ปิดเมนูเพิ่มเติม"
             className="absolute inset-0 w-full bg-slate-950/45 backdrop-blur-[2px]"
@@ -101,7 +101,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({ currentTab, onSelectTab })
         </div>
       )}
 
-      <nav aria-label="เมนูหลักบนโทรศัพท์" className="mobile-pro-nav lg:hidden fixed inset-x-0 bottom-0 z-[55] no-print">
+      <nav aria-label="เมนูหลักบนโทรศัพท์" className="mobile-pro-nav lg:hidden fixed inset-x-0 bottom-0 z-[45] no-print">
         <div className="mx-auto grid max-w-lg grid-cols-5 items-end gap-1 px-2 pt-2" style={{ paddingBottom: 'calc(.45rem + env(safe-area-inset-bottom))' }}>
           {primaryItems.map((item) => {
             const active = currentTab === item.id;
