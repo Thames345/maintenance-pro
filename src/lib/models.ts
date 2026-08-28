@@ -178,6 +178,7 @@ export function friendlyError(error: unknown) {
     ['Complete all required checklist items', 'กรอก Checklist บังคับให้ครบก่อนส่งงาน'],
     ['Attach at least', 'จำนวนรูปแนบยังไม่ครบตามแม่แบบ'],
     ['Add an abnormal finding', 'ผลตรวจผิดปกติต้องบันทึกรายละเอียดและแนวทางแก้ไข'],
+    ['Attach a photo to every checklist item marked as photo-required', 'ยังมีหัวข้อที่ตั้งค่า “บังคับแนบรูป” แต่ยังไม่ได้แนบรูป กรุณาแนบรูปให้ครบก่อนส่งตรวจ'],
     ['Attach a photo to every abnormal checklist item', 'ผลตรวจผิดปกติที่กำหนดให้มีรูป ต้องแนบรูปในหัวข้อนั้นก่อนส่งงาน'],
     ['Not assigned to this work order', 'คุณไม่ได้รับมอบหมายในใบงานนี้'],
     ['Manager permission required', 'รายการนี้ต้องใช้สิทธิ์หัวหน้าหรือผู้ดูแล'],

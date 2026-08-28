@@ -89,6 +89,17 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
       const missingNote = resultRows.find((row) => row.isAbnormal && !row.notes.trim());
       if (missingNote) return setValidation('ผลที่ผิดปกติต้องกรอกหมายเหตุใต้หัวข้อนั้น');
       if (abnormalCount > 0 && !immediateAction.trim()) return setValidation('กรุณาระบุการแก้ไขเบื้องต้นเมื่อพบความผิดปกติ');
+      const missingAlwaysPhoto = resultRows.find((row) => {
+        const item = record.checklists.find((entry) => entry.id === row.workOrderItemId);
+        if (!item?.raw?.require_photo) return false;
+        const existing = (item.attachments || []).some((file) => String(file.mime_type || '').startsWith('image/'));
+        const selected = (itemFiles[row.workOrderItemId] || []).some((file) => file.type.startsWith('image/'));
+        return !existing && !selected;
+      });
+      if (missingAlwaysPhoto) {
+        const item = record.checklists.find((entry) => entry.id === missingAlwaysPhoto.workOrderItemId);
+        return setValidation(`หัวข้อ “${item?.name || 'Checklist'}” บังคับแนบรูป กรุณาแนบรูปก่อนส่งตรวจ`);
+      }
       const missingPhoto = resultRows.find((row) => {
         if (!row.isAbnormal) return false;
         const item = record.checklists.find((entry) => entry.id === row.workOrderItemId);
@@ -151,7 +162,7 @@ export const TaskDetailModal: React.FC<TaskDetailModalProps> = ({
                 </div>
                 <div className="mt-3 rounded-xl border border-zinc-800 bg-zinc-950/50 p-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-[11px] font-bold text-zinc-400">รูปหลักฐานของหัวข้อนี้ {isAbnormal && item.raw?.require_photo_if_abnormal ? <span className="text-rose-400">* จำเป็นเมื่อผิดปกติ</span> : null}</p>
+                    <p className="text-[11px] font-bold text-zinc-400">รูปหลักฐานของหัวข้อนี้ {item.raw?.require_photo ? <span className="text-indigo-400">* บังคับแนบรูป</span> : isAbnormal && item.raw?.require_photo_if_abnormal ? <span className="text-rose-400">* จำเป็นเมื่อผิดปกติ</span> : <span className="text-zinc-600">(ไม่บังคับ)</span>}</p>
                     {editable && <label className="cursor-pointer rounded-lg border border-zinc-700 px-3 py-1.5 text-[10px] font-bold text-zinc-300 hover:border-indigo-500">
                       <Upload className="mr-1 inline h-3.5 w-3.5"/> เลือกรูป
                       <input type="file" multiple accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => setItemFiles((old) => ({ ...old, [item.id]: Array.from(e.target.files || []) }))}/>

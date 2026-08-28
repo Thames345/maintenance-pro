@@ -29,6 +29,7 @@ interface ItemDraft {
   min_value: string;
   max_value: string;
   is_required: boolean;
+  require_photo: boolean;
   require_photo_if_abnormal: boolean;
   choicesText: string;
 }
@@ -70,6 +71,7 @@ const draftFromRow = (item: AnyRow): ItemDraft => ({
   min_value: item.min_value === null || item.min_value === undefined ? '' : String(item.min_value),
   max_value: item.max_value === null || item.max_value === undefined ? '' : String(item.max_value),
   is_required: item.is_required !== false,
+  require_photo: item.require_photo === true,
   require_photo_if_abnormal: item.require_photo_if_abnormal !== false,
   choicesText: Array.isArray(item.choices) ? item.choices.join(', ') : '',
 });
@@ -77,7 +79,7 @@ const draftFromRow = (item: AnyRow): ItemDraft => ({
 const newDraft = (): ItemDraft => ({
   id: '', item_name: '', section_name: 'รายการตรวจ', answer_type: 'normal_abnormal',
   unit: '', min_value: '', max_value: '', is_required: true,
-  require_photo_if_abnormal: true, choicesText: '',
+  require_photo: false, require_photo_if_abnormal: true, choicesText: '',
 });
 
 export const TemplatesView: React.FC<TemplatesViewProps> = ({
@@ -176,6 +178,7 @@ export const TemplatesView: React.FC<TemplatesViewProps> = ({
       min_value: item.min_value === '' ? null : Number(item.min_value),
       max_value: item.max_value === '' ? null : Number(item.max_value),
       is_required: item.is_required,
+      require_photo: item.require_photo,
       require_photo_if_abnormal: item.require_photo_if_abnormal,
       choices: item.choicesText.split(',').map((value) => value.trim()).filter(Boolean),
     })));
@@ -316,6 +319,7 @@ export const TemplatesView: React.FC<TemplatesViewProps> = ({
                     {item.answer_type === 'select' && <label className="field-dark sm:col-span-2 lg:col-span-3"><span>ตัวเลือก (คั่นด้วย ,)</span><input value={item.choicesText} onChange={(e) => patchItem(index, {choicesText: e.target.value})} placeholder="ปกติ, ต่ำ, สูง"/></label>}
 
                     <label className="flex items-center gap-2 text-[11px] text-zinc-400"><input type="checkbox" checked={item.is_required} onChange={(e) => patchItem(index, {is_required: e.target.checked})}/> บังคับตอบ</label>
+                    <label className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-[11px] font-bold ${item.require_photo ? 'border-indigo-500/30 bg-indigo-500/10 text-indigo-300' : 'border-zinc-800 text-zinc-400'}`}><input type="checkbox" checked={item.require_photo} onChange={(e) => patchItem(index, {require_photo: e.target.checked})}/> บังคับแนบรูปทุกครั้ง</label>
                     <label className="flex items-center gap-2 text-[11px] text-zinc-400"><input type="checkbox" checked={item.require_photo_if_abnormal} onChange={(e) => patchItem(index, {require_photo_if_abnormal: e.target.checked})}/> ผิดปกติต้องมีรูป</label>
                   </div>
                   <div className="flex flex-col gap-1 shrink-0">
